@@ -1,4 +1,5 @@
 #include <curses.h>
+#include <algorithm>
 #include <chrono>
 #include <string>
 #include <thread>
@@ -69,20 +70,26 @@ void NCursesDisplay::DisplayProcesses(std::vector<Process>& processes,
   mvwprintw(window, row, time_column, "TIME+");
   mvwprintw(window, row, command_column, "COMMAND");
   wattroff(window, COLOR_PAIR(2));
-  for (int i = 0; i < n; ++i) {
-    //You need to take care of the fact that the cpu utilization has already been multiplied by 100.
-    // Clear the line
-    mvwprintw(window, ++row, pid_column, (string(getmaxy(window)-2, ' ').c_str()));
-    
+  int const width{getmaxx(window)};
+  int const clear_width{std::max(width - 3, 0)};
+  int const command_width{std::max(width - command_column - 1, 0)};
+  int const user_width{cpu_column - user_column - 1};
+  int const count{std::min(n, static_cast<int>(processes.size()))};
+
+  for (int i = 0; i < count; ++i) {
+    // Clear the whole row inside the border before drawing new values
+    mvwprintw(window, ++row, pid_column, "%s", string(clear_width, ' ').c_str());
+
     mvwprintw(window, row, pid_column, "%s", to_string(processes[i].Pid()).c_str());
-    mvwprintw(window, row, user_column, "%s", processes[i].User().c_str());
+    mvwprintw(window, row, user_column, "%s",
+              processes[i].User().substr(0, user_width).c_str());
     float cpu = processes[i].CpuUtilization() * 100;
     mvwprintw(window, row, cpu_column, "%s", to_string(cpu).substr(0, 4).c_str());
     mvwprintw(window, row, ram_column, "%s", processes[i].Ram().c_str());
     mvwprintw(window, row, time_column, "%s",
               Format::ElapsedTime(processes[i].UpTime()).c_str());
     mvwprintw(window, row, command_column, "%s",
-              processes[i].Command().substr(0, getmaxy(window) - 46).c_str());
+              processes[i].Command().substr(0, command_width).c_str());
   }
 }
 
